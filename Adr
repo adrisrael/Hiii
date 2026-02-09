@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometry Dash</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@800;900&display=swap');
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+    }
+    
+    body {
+        background: #000;
+        overflow: hidden;
+        height: 100vh;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    canvas {
+        display: block;
+        image-rendering: pixelated;
+    }
+    
+    /* Main Menu */
+    #mainMenu {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(180deg, #287bff 0%, #1a5fd6 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+    
+    #mainMenu h1 {
+        font-size: 7rem;
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 
+            0 10px 0 rgba(0,0,0,0.3),
+            0 15px 30px rgba(0,0,0,0.5);
+        letter-spacing: 0.02em;
+        margin-bottom: 3rem;
+    }
+    
+    .menu-btn {
+        padding: 1.2rem 4rem;
+        font-size: 2rem;
+        font-weight: 900;
+        border: none;
+        background: linear-gradient(180deg, #0dff00 0%, #00cc00 100%);
+        color: #fff;
+        cursor: pointer;
+        border-radius: 12px;
+        box-shadow: 0 8px 0 #008800, 0 12px 25px rgba(0,0,0,0.4);
+        transition: all 0.1s;
+        text-shadow: 0 3px 5px rgba(0,0,0,0.4);
+        margin: 0.5rem;
+    }
+    
+    .menu-btn:hover {
+        transform: translateY(3px);
+        box-shadow: 0 5px 0 #008800, 0 8px 20px rgba(0,0,0,0.4);
+    }
+    
+    .menu-btn:active {
+        transform: translateY(6px);
+        box-shadow: 0 2px 0 #008800, 0 4px 15px rgba(0,0,0,0.4);
+    }
+    
+    /* Level Select */
+    #levelSelect {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(180deg, #ff6347 0%, #ff4500 100%);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        padding: 3rem;
+        z-index: 100;
+        overflow-y: auto;
+    }
+    
+    #levelSelect h2 {
+        font-size: 4rem;
+        color: #fff;
+        text-shadow: 0 6px 0 rgba(0,0,0,0.3);
+        margin-bottom: 2rem;
+        font-weight: 900;
+    }
+    
+    .level-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 2rem;
+        max-width: 1200px;
+        width: 100%;
+    }
+    
+    .level-card {
+        background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+        border: 5px solid #000;
+        border-radius: 15px;
+        padding: 2rem;
+        cursor: pointer;
+        box-shadow: 0 8px 0 #000, 0 12px 25px rgba(0,0,0,0.5);
+        transition: all 0.1s;
+    }
+    
+    .level-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 11px 0 #000, 0 15px 30px rgba(0,0,0,0.5);
+    }
+    
+    .level-card:active {
+        transform: translateY(3px);
+        box-shadow: 0 5px 0 #000, 0 8px 20px rgba(0,0,0,0.5);
+    }
+    
+    .level-card.locked {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .level-card h3 {
+        font-size: 1.8rem;
+        color: #000;
+        margin-bottom: 1rem;
+        font-weight: 900;
+    }
+    
+    .level-card .difficulty {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 900;
+        font-size: 1rem;
+    }
+    
+    .difficulty.easy { background: #00ff00; color: #000; }
+    .difficulty.normal { background: #ffff00; color: #000; }
+    .difficulty.hard { background: #ff6600; color: #fff; }
+    .difficulty.insane { background: #ff0000; color: #fff; }
+    .difficulty.demon { background: #aa00ff; color: #fff; }
+    
+    /* Game UI */
+    #gameUI {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        display: none;
+        justify-content: space-between;
+        align-items: flex-start;
+        z-index: 50;
+        pointer-events: none;
+    }
+    
+    .ui-stat {
+        background: rgba(0,0,0,0.8);
+        border: 4px solid #fff;
+        border-radius: 10px;
+        padding: 0.8rem 1.5rem;
+        color: #fff;
+        font-size: 2rem;
+        font-weight: 900;
+        text-shadow: 0 3px 5px rgba(0,0,0,0.8);
+        margin-bottom: 0.5rem;
+    }
+    
+    .ui-btn {
+        background: rgba(0,0,0,0.8);
+        border: 4px solid #fff;
+        border-radius: 10px;
+        padding: 0.8rem 1.5rem;
+        color: #fff;
+        font-size: 1.3rem;
+        font-weight: 900;
+        cursor: pointer;
+        pointer-events: all;
+        transition: all 0.1s;
+    }
+    
+    .ui-btn:hover {
+        background: rgba(50,50,50,0.9);
+        transform: scale(1.05);
+    }
+    
+    /* Death/Victory Screens */
+    #deathScreen, #victoryScreen {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.95);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 90;
+    }
+    
+    #victoryScreen {
+        background: linear-gradient(135deg, #ffd700 0%, #ff8800 100%);
+    }
+    
+    #deathScreen h2 {
+        font-size: 6rem;
+        color: #ff0000;
+        text-shadow: 0 8px 0 rgba(0,0,0,0.5);
+        margin-bottom: 2rem;
+        font-weight: 900;
+        animation: shake 0.5s;
+    }
+    
+    #victoryScreen h2 {
+        font-size: 6rem;
+        color: #fff;
+        text-shadow: 0 8px 0 rgba(0,0,0,0.3);
+        margin-bottom: 2rem;
+        font-weight: 900;
+        animation: bounce 1s infinite;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+        20%, 40%, 60%, 80% { transform: translateX(8px); }
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
+    }
+    
+    .death-stats, .victory-stats {
+        background: rgba(255,255,255,0.2);
+        border: 4px solid #fff;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .death-stats p, .victory-stats p {
+        color: #fff;
+        font-size: 1.8rem;
+        font-weight: 900;
+        text-shadow: 0 3px 5px rgba(0,0,0,0.5);
+        margin: 0.5rem 0;
+    }
+    
+    .back-btn {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.9);
+        border: 4px solid #000;
+        border-radius: 10px;
+        padding: 0.8rem 1.5rem;
+        font-size: 1.5rem;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 4px 0 #000;
+        transition: all 0.1s;
+        z-index: 101;
+    }
+    
+    .back-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 #000;
+    }
+    
+    .back-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #000;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- Main Menu -->
+<div id="mainMenu">
+    <h1>GEOMETRY DASH</h1>
+    <div>
+        <button class="menu-btn" onclick="showLevelSelect()">PLAY</button>
+        <button class="menu-btn" onclick="alert('Level Creator - Click on the game canvas during play to place obstacles! (Coming in full version)')">CREATE</button>
+    </div>
+</div>
+
+<!-- Level Select -->
+<div id="levelSelect">
+    <button class="back-btn" onclick="showMainMenu()">← BACK</button>
+    <h2>SELECT LEVEL</h2>
+    <div class="level-grid" id="levelGrid"></div>
+</div>
+
+<!-- Game UI -->
+<div id="gameUI">
+    <div>
+        <div class="ui-stat" id="progressUI">0%</div>
+        <div class="ui-stat" id="attemptUI">Attempt 1</div>
+        <div class="ui-stat" id="modeUI">CUBE</div>
+    </div>
+    <div>
+        <button class="ui-btn" onclick="exitLevel()">EXIT</button>
+    </div>
+</div>
+
+<!-- Death Screen -->
+<div id="deathScreen">
+    <h2>LEVEL FAILED</h2>
+    <div class="death-stats">
+        <p id="deathProgress">Progress: 0%</p>
+        <p id="deathAttempt">Attempt: 1</p>
+    </div>
+    <div>
+        <button class="menu-btn" onclick="restartLevel()">RETRY</button>
+        <button class="menu-btn" onclick="exitLevel()">EXIT</button>
+    </div>
+</div>
+
+<!-- Victory Screen -->
+<div id="victoryScreen">
+    <h2>LEVEL COMPLETE!</h2>
+    <div class="victory-stats">
+        <p id="victoryAttempts">Attempts: 1</p>
+        <p id="victoryJumps">Jumps: 0</p>
+    </div>
+    <div>
+        <button class="menu-btn" onclick="showLevelSelect()">LEVELS</button>
+        <button class="menu-btn" onclick="showMainMenu()">MENU</button>
+    </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// SETUP
+// ════════════════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+
+window.addEventListener('resize', () => {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    groundY = H - 90;
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// GAME STATE
+// ════════════════════════════════════════════════════════════════════════
+
+let gameState = 'menu';
+let currentLevel = null;
+let currentLevelIndex = 0;
+
+let player = {
+    x: 220,
+    y: 0,
+    vy: 0,
+    size: 52,
+    color: '#00ff9d',
+    trail: [],
+    rot: 0,
+    rotTarget: 0,
+    mode: 'cube', // cube, ship, ball, ufo, wave
+    onGround: false
+};
+
+// Physics per mode
+const PHYSICS = {
+    cube: { gravity: 0.78, jumpVel: -19.5, speed: 6.8 },
+    ship: { gravity: 0.5, upVel: -1.0, downVel: 0.6, speed: 7.0 },
+    ball: { gravity: 0.78, jumpVel: -19.5, speed: 6.8, canFlip: true },
+    ufo: { gravity: 0.78, jumpVel: -14.0, speed: 6.5 },
+    wave: { gravity: 0, upVel: -6.5, downVel: 6.5, speed: 7.2 }
+};
+
+let camX = 0;
+let groundY = H - 90;
+let pressing = false;
+let wasPressed = false;
+let dead = false;
+
+let attempts = 1;
+let jumps = 0;
+let progress = 0;
+
+let particles = [];
+
+// ════════════════════════════════════════════════════════════════════════
+// LEVELS - OTHER AIs CAN SEND YOU LEVELS IN THIS FORMAT
+// ════════════════════════════════════════════════════════════════════════
+
+const LEVELS = [
+    {
+        name: "Stereo Madness",
+        difficulty: "easy",
+        color: '#00ff9d',
+        bg1: '#40b0ff',
+        bg2: '#0070c8',
+        ground: '#00ff00',
+        unlocked: true,
+        length: 4500,
+        obstacles: [
+            {x: 500, type:'spike', w:48, h:62},
+            {x: 700, type:'spike', w:48, h:62},
+            {x: 1000, type:'spike', w:48, h:62},
+            {x: 1100, type:'block', w:60, h:60},
+            {x: 1400, type:'spike', w:48, h:62},
+            {x: 1700, type:'portal', mode:'ship', w:40, h:100},
+            {x: 2000, type:'spike', w:48, h:62},
+            {x: 2300, type:'spike', w:48, h:62},
+            {x: 2600, type:'portal', mode:'cube', w:40, h:100},
+            {x: 2900, type:'spike', w:48, h:62},
+            {x: 3200, type:'portal', mode:'ball', w:40, h:100},
+            {x: 3500, type:'spike', w:48, h:62},
+            {x: 3800, type:'portal', mode:'cube', w:40, h:100},
+            {x: 4000, type:'spike', w:48, h:62},
+            {x: 4200, type:'spike', w:48, h:62}
+        ]
+    },
+    {
+        name: "Back On Track",
+        difficulty: "easy",
+        color: '#00ffff',
+        bg1: '#70ff70',
+        bg2: '#20aa20',
+        ground: '#ffff00',
+        unlocked: true,
+        length: 5000,
+        obstacles: [
+            {x: 400, type:'spike', w:48, h:62},
+            {x: 600, type:'spike', w:48, h:62},
+            {x: 900, type:'portal', mode:'ufo', w:40, h:100},
+            {x: 1200, type:'spike', w:48, h:62},
+            {x: 1500, type:'portal', mode:'cube', w:40, h:100},
+            {x: 1800, type:'spike', w:48, h:62},
+            {x: 2100, type:'portal', mode:'wave', w:40, h:100},
+            {x: 2400, type:'spike', w:48, h:62},
+            {x: 2700, type:'portal', mode:'cube', w:40, h:100},
+            {x: 3000, type:'spike', w:48, h:62},
+            {x: 3300, type:'block', w:60, h:60},
+            {x: 3600, type:'spike', w:48, h:62},
+            {x: 3900, type:'spike', w:48, h:62},
+            {x: 4200, type:'spike', w:48, h:62},
+            {x: 4500, type:'spike', w:48, h:62},
+            {x: 4800, type:'spike', w:48, h:62}
+        ]
+    },
+    {
+        name: "Polargeist",
+        difficulty: "normal",
+        color: '#ff00ff',
+        bg1: '#ff60ff',
+        bg2: '#aa00aa',
+        ground: '#0080ff',
+        unlocked: true,
+        length: 5500,
+        obstacles: generateRandomLevel(5500, 250)
+    },
+    {
+        name: "Dry Out",
+        difficulty: "normal",
+        color: '#ffaa00',
+        bg1: '#ffdd77',
+        bg2: '#dd7700',
+        ground: '#ff0000',
+        unlocked: true,
+        length: 6000,
+        obstacles: generateRandomLevel(6000, 230)
+    },
+    {
+        name: "Base After Base",
+        difficulty: "hard",
+        color: '#00ff00',
+        bg1: '#77ff77',
+        bg2: '#00aa00',
+        ground: '#00ffff',
+        unlocked: true,
+        length: 6500,
+        obstacles: generateRandomLevel(6500, 200)
+    },
+    {
+        name: "Neon Vector",
+        difficulty: "insane",
+        color: "#00ffd5",
+        bg1: "#1a0033",
+        bg2: "#000011",
+        ground: "#00ffd5",
+        unlocked: true,
+        length: 8200,
+        obstacles: [
+            // --- INTRO (cube, learn rhythm) ---
+            { x: 600, type: "block", w: 60, h: 60 },
+            { x: 820, type: "spike", w: 48, h: 62 },
+            { x: 1060, type: "block", w: 60, h: 60 },
+            { x: 1280, type: "spike", w: 48, h: 62 },
+            { x: 1500, type: "block", w: 60, h: 60 },
+            { x: 1750, type: "spike", w: 48, h: 62 },
+            // --- FLOW BUILD ---
+            { x: 2000, type: "block", w: 60, h: 60 },
+            { x: 2200, type: "block", w: 60, h: 60 },
+            { x: 2450, type: "spike", w: 48, h: 62 },
+            { x: 2650, type: "spike", w: 48, h: 62 },
+            // --- SHIP ---
+            { x: 2900, type: "portal", mode: "ship", w: 40, h: 100 },
+            { x: 3150, type: "spike", w: 48, h: 62 },
+            { x: 3350, type: "block", w: 60, h: 60 },
+            { x: 3600, type: "spike", w: 48, h: 62 },
+            { x: 3850, type: "block", w: 60, h: 60 },
+            // --- SPEED UP ---
+            { x: 4100, type: "speed", value: "fast" },
+            { x: 4250, type: "spike", w: 48, h: 62 },
+            { x: 4450, type: "spike", w: 48, h: 62 },
+            { x: 4650, type: "block", w: 60, h: 60 },
+            // --- BALL ---
+            { x: 4900, type: "portal", mode: "ball", w: 40, h: 100 },
+            { x: 5100, type: "block", w: 60, h: 60 },
+            { x: 5300, type: "spike", w: 48, h: 62 },
+            { x: 5500, type: "block", w: 60, h: 60 },
+            { x: 5750, type: "spike", w: 48, h: 62 },
+            // --- GRAVITY SWITCH ---
+            { x: 6000, type: "portal", mode: "gravity", value: "invert", w: 40, h: 100 },
+            { x: 6200, type: "block", w: 60, h: 60 },
+            { x: 6400, type: "spike", w: 48, h: 62 },
+            { x: 6600, type: "block", w: 60, h: 60 },
+            // --- WAVE (short, fair) ---
+            { x: 6800, type: "portal", mode: "wave", w: 40, h: 100 },
+            { x: 7000, type: "spike", w: 48, h: 62 },
+            { x: 7200, type: "spike", w: 48, h: 62 },
+            { x: 7400, type: "spike", w: 48, h: 62 },
+            // --- NORMAL SPEED ---
+            { x: 7600, type: "speed", value: "normal" },
+            { x: 7750, type: "portal", mode: "cube", w: 40, h: 100 },
+            // --- ENDING ---
+            { x: 7950, type: "block", w: 60, h: 60 },
+            { x: 8150, type: "spike", w: 48, h: 62 },
+            { x: 8350, type: "block", w: 60, h: 60 }
+        ]
+    }
+];
+
+function generateRandomLevel(length, spacing) {
+    const obs = [];
+    const modes = ['cube', 'ship', 'ball', 'ufo', 'wave'];
+    let currentMode = 'cube';
+    let lastPortal = 0;
+    
+    for (let x = 400; x < length; x += spacing + Math.random() * 100) {
+        const rand = Math.random();
+        
+        if (rand < 0.65) {
+            obs.push({x, type: 'spike', w: 48, h: 62});
+        } else if (rand < 0.85) {
+            obs.push({x, type: 'block', w: 60, h: 60});
+        } else if (x - lastPortal > 800) {
+            const newMode = modes[Math.floor(Math.random() * modes.length)];
+            if (newMode !== currentMode) {
+                obs.push({x, type: 'portal', mode: newMode, w: 40, h: 100});
+                currentMode = newMode;
+                lastPortal = x;
+            }
+        }
+    }
+    
+    return obs;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CONTROLS
+// ════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && gameState === 'playing') {
+        e.preventDefault();
+        pressing = true;
+    }
+});
+
+document.addEventListener('keyup', e => {
+    if (e.code === 'Space') {
+        pressing = false;
+    }
+});
+
+canvas.addEventListener('mousedown', () => {
+    if (gameState === 'playing') pressing = true;
+});
+
+canvas.addEventListener('mouseup', () => pressing = false);
+
+canvas.addEventListener('touchstart', e => {
+    if (gameState === 'playing') {
+        e.preventDefault();
+        pressing = true;
+    }
+}, {passive: false});
+
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    pressing = false;
+}, {passive: false});
+
+// ════════════════════════════════════════════════════════════════════════
+// UI FUNCTIONS
+// ════════════════════════════════════════════════════════════════════════
+
+function showMainMenu() {
+    gameState = 'menu';
+    document.getElementById('mainMenu').style.display = 'flex';
+    document.getElementById('levelSelect').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'none';
+    document.getElementById('deathScreen').style.display = 'none';
+    document.getElementById('victoryScreen').style.display = 'none';
+}
+
+function showLevelSelect() {
+    gameState = 'levelSelect';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('levelSelect').style.display = 'flex';
+    renderLevelGrid();
+}
+
+function renderLevelGrid() {
+    const grid = document.getElementById('levelGrid');
+    grid.innerHTML = '';
+    
+    LEVELS.forEach((level, index) => {
+        const card = document.createElement('div');
+        card.className = 'level-card' + (level.unlocked ? '' : ' locked');
+        card.innerHTML = `
+            <h3>${level.name}</h3>
+            <span class="difficulty ${level.difficulty}">${level.difficulty.toUpperCase()}</span>
+        `;
+        
+        if (level.unlocked) {
+            card.onclick = () => startLevel(index);
+        }
+        
+        grid.appendChild(card);
+    });
+}
+
+function startLevel(index) {
+    currentLevelIndex = index;
+    currentLevel = LEVELS[index];
+    
+    gameState = 'playing';
+    document.getElementById('levelSelect').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'flex';
+    
+    resetLevel();
+    attempts = 1;
+    jumps = 0;
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function resetLevel() {
+    player.x = 220;
+    player.y = groundY - player.size;
+    player.vy = 0;
+    player.rot = 0;
+    player.rotTarget = 0;
+    player.trail = [];
+    player.mode = 'cube';
+    player.onGround = false;
+    player.color = currentLevel.color;
+    
+    camX = 0;
+    progress = 0;
+    dead = false;
+    pressing = false;
+    wasPressed = false;
+    particles = [];
+    
+    updateUI();
+}
+
+function restartLevel() {
+    document.getElementById('deathScreen').style.display = 'none';
+    gameState = 'playing';
+    resetLevel();
+    attempts++;
+    requestAnimationFrame(gameLoop);
+}
+
+function exitLevel() {
+    gameState = 'menu';
+    document.getElementById('gameUI').style.display = 'none';
+    document.getElementById('deathScreen').style.display = 'none';
+    document.getElementById('victoryScreen').style.display = 'none';
+    showLevelSelect();
+}
+
+function updateUI() {
+    document.getElementById('progressUI').textContent = Math.floor(progress) + '%';
+    document.getElementById('attemptUI').textContent = 'Attempt ' + attempts;
+    document.getElementById('modeUI').textContent = player.mode.toUpperCase();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GAME LOOP
+// ════════════════════════════════════════════════════════════════════════
+
+function gameLoop() {
+    if (gameState !== 'playing') return;
+    
+    update();
+    draw();
+    
+    if (!dead && progress < 100) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+function update() {
+    if (dead) return;
+    
+    const phys = PHYSICS[player.mode];
+    
+    // Mode-specific input
+    if (player.mode === 'cube') {
+        // Continuous jumping - if holding and on ground, jump
+        if (pressing && player.onGround) {
+            player.vy = phys.jumpVel;
+            jumps++;
+            player.onGround = false; // Prevent double jump in same frame
+        }
+    } else if (player.mode === 'ship') {
+        if (pressing) {
+            player.vy += phys.upVel;
+        } else {
+            player.vy += phys.downVel;
+        }
+        player.vy = Math.max(-12, Math.min(12, player.vy));
+    } else if (player.mode === 'ball') {
+        if (pressing && !wasPressed && player.onGround) {
+            player.vy = phys.jumpVel;
+            jumps++;
+        }
+    } else if (player.mode === 'ufo') {
+        if (pressing && !wasPressed) {
+            player.vy = phys.jumpVel;
+            jumps++;
+        }
+    } else if (player.mode === 'wave') {
+        if (pressing) {
+            player.vy = phys.upVel;
+        } else {
+            player.vy = phys.downVel;
+        }
+    }
+    
+    wasPressed = pressing;
+    
+    // Gravity
+    if (player.mode !== 'wave') {
+        player.vy += phys.gravity;
+    }
+    
+    player.y += player.vy;
+    
+    // Ground collision
+    player.onGround = false;
+    if (player.mode !== 'ship' && player.mode !== 'wave') {
+        if (player.y + player.size >= groundY) {
+            player.y = groundY - player.size;
+            player.vy = 0;
+            player.onGround = true;
+            player.rot = Math.round(player.rot / 90) * 90;
+        }
+        
+        // Platform/block collision - check if landing on top
+        for (let obs of currentLevel.obstacles) {
+            if (obs.type !== 'block') continue;
+            
+            const ox = obs.x - camX;
+            if (ox < -100 || ox > W + 100) continue;
+            
+            const obsY = groundY - obs.h;
+            const obsTop = obsY;
+            const obsBottom = obsY + obs.h;
+            const obsLeft = ox;
+            const obsRight = ox + obs.w;
+            
+            const playerBottom = player.y + player.size;
+            const playerLeft = player.x + 5;
+            const playerRight = player.x + player.size - 5;
+            
+            // Check if landing on top of block
+            if (player.vy >= 0 && 
+                playerBottom >= obsTop && 
+                playerBottom <= obsTop + 10 &&
+                playerRight > obsLeft && 
+                playerLeft < obsRight) {
+                player.y = obsTop - player.size;
+                player.vy = 0;
+                player.onGround = true;
+                player.rot = Math.round(player.rot / 90) * 90;
+                break;
+            }
+        }
+    }
+    
+    // ABSOLUTE FLOOR BOUNDARY - CAN NEVER GO BELOW GROUND
+    if (player.y + player.size > groundY) {
+        player.y = groundY - player.size;
+        player.vy = Math.min(0, player.vy);
+    }
+    
+    // Ship and wave also respect floor
+    if (player.mode === 'ship' || player.mode === 'wave') {
+        if (player.y + player.size >= groundY) {
+            player.y = groundY - player.size;
+            player.vy = Math.min(0, player.vy);
+        }
+    }
+    
+    // Ceiling
+    if (player.y <= 0) {
+        if (player.mode === 'ship' || player.mode === 'wave') {
+            player.y = 0;
+            player.vy = Math.max(0, player.vy);
+        } else {
+            die();
+            return;
+        }
+    }
+    
+    // Rotation - SMOOTH AND CONSTANT like real GD
+    if (player.mode === 'cube') {
+        if (!player.onGround) {
+            // Constant smooth rotation while in air
+            player.rot += 5.5;
+        } else {
+            // Snap to nearest 90 degrees when on ground
+            const target = Math.round(player.rot / 90) * 90;
+            const diff = target - player.rot;
+            if (Math.abs(diff) > 2) {
+                player.rot += diff * 0.3;
+            } else {
+                player.rot = target;
+            }
+        }
+    } else if (player.mode === 'ship') {
+        player.rot = player.vy * 2.5;
+    } else if (player.mode === 'ball') {
+        player.rot += 8;
+    } else if (player.mode === 'ufo') {
+        if (!player.onGround) {
+            player.rot += 3;
+        }
+    }
+    
+    // Trail
+    if (player.mode === 'ship' || player.mode === 'wave') {
+        player.trail.push({
+            x: player.x + camX,
+            y: player.y + player.size / 2,
+            life: 1
+        });
+        if (player.trail.length > 30) player.trail.shift();
+    }
+    
+    for (let p of player.trail) {
+        p.life -= 0.04;
+    }
+    
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].life -= 0.03;
+        particles[i].y += particles[i].vy;
+        particles[i].x += particles[i].vx;
+        particles[i].vy += 0.4;
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+    
+    // Camera
+    camX += phys.speed;
+    progress = Math.min(100, (camX / currentLevel.length) * 100);
+    
+    // Collision
+    checkCollisions();
+    
+    // Victory
+    if (progress >= 100) {
+        victory();
+    }
+    
+    updateUI();
+}
+
+function checkCollisions() {
+    for (let obs of currentLevel.obstacles) {
+        const ox = obs.x - camX; // Screen X position
+        if (ox < -100 || ox > W + 100) continue;
+        
+        // Portal
+        if (obs.type === 'portal') {
+            if (player.x + player.size > ox &&
+                player.x < ox + obs.w &&
+                player.y + player.size > groundY - obs.h &&
+                player.y < groundY) {
+                if (player.mode !== obs.mode) {
+                    player.mode = obs.mode;
+                    player.trail = [];
+                }
+            }
+            continue;
+        }
+        
+        // Obstacle position on screen
+        const obsY = groundY - obs.h;
+        
+        // Hitbox with small margin for fairness
+        const margin = 5;
+        
+        const playerLeft = player.x + margin;
+        const playerRight = player.x + player.size - margin;
+        const playerTop = player.y + margin;
+        const playerBottom = player.y + player.size - margin;
+        
+        const obsLeft = ox;
+        const obsRight = ox + obs.w;
+        const obsTop = obsY;
+        const obsBottom = obsY + obs.h;
+        
+        // For blocks, check if landing on top (safe zone)
+        if (obs.type === 'block') {
+            const landingZone = playerBottom <= obsTop + 8 && player.vy >= 0;
+            
+            // If landing on top safely, skip collision
+            if (landingZone && 
+                playerRight > obsLeft && 
+                playerLeft < obsRight) {
+                continue;
+            }
+        }
+        
+        // AABB collision for spikes and side/bottom collisions with blocks
+        if (playerRight > obsLeft && 
+            playerLeft < obsRight && 
+            playerBottom > obsTop && 
+            playerTop < obsBottom) {
+            die();
+            return;
+        }
+    }
+}
+
+function die() {
+    dead = true;
+    gameState = 'dead';
+    
+    // Death particles
+    for (let i = 0; i < 30; i++) {
+        particles.push({
+            x: player.x + camX + player.size / 2,
+            y: player.y + player.size / 2,
+            vx: (Math.random() - 0.5) * 12,
+            vy: (Math.random() - 0.5) * 12,
+            life: 1.5
+        });
+    }
+    
+    document.getElementById('deathProgress').textContent = 'Progress: ' + Math.floor(progress) + '%';
+    document.getElementById('deathAttempt').textContent = 'Attempt: ' + attempts;
+    
+    setTimeout(() => {
+        document.getElementById('deathScreen').style.display = 'flex';
+    }, 600);
+}
+
+function victory() {
+    dead = true;
+    gameState = 'victory';
+    
+    // Unlock next level
+    if (currentLevelIndex < LEVELS.length - 1) {
+        LEVELS[currentLevelIndex + 1].unlocked = true;
+    }
+    
+    document.getElementById('victoryAttempts').textContent = 'Attempts: ' + attempts;
+    document.getElementById('victoryJumps').textContent = 'Jumps: ' + jumps;
+    
+    setTimeout(() => {
+        document.getElementById('victoryScreen').style.display = 'flex';
+    }, 500);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RENDERING
+// ════════════════════════════════════════════════════════════════════════
+
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+    
+    // Background
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, currentLevel.bg1);
+    bg.addColorStop(1, currentLevel.bg2);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Grid
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.lineWidth = 2;
+    const grid = 70;
+    for (let x = -camX % grid - grid; x < W + grid; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+    }
+    
+    // Ground
+    ctx.fillStyle = currentLevel.ground;
+    ctx.fillRect(0, groundY, W, H - groundY);
+    
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+    
+    // Obstacles
+    for (let obs of currentLevel.obstacles) {
+        const ox = obs.x - camX;
+        if (ox < -100 || ox > W + 100) continue;
+        
+        if (obs.type === 'spike') {
+            drawSpike(ox, groundY, obs.w, obs.h);
+        } else if (obs.type === 'block') {
+            drawBlock(ox, groundY - obs.h, obs.w, obs.h);
+        } else if (obs.type === 'portal') {
+            drawPortal(ox, groundY - obs.h, obs.w, obs.h, obs.mode);
+        }
+    }
+    
+    // Particles
+    for (let p of particles) {
+        if (p.life <= 0) continue;
+        ctx.globalAlpha = p.life * 0.8;
+        ctx.fillStyle = player.color;
+        ctx.fillRect(p.x - camX, p.y, 6, 6);
+    }
+    ctx.globalAlpha = 1;
+    
+    // Trail
+    for (let p of player.trail) {
+        if (p.life <= 0) continue;
+        ctx.globalAlpha = p.life * 0.6;
+        ctx.fillStyle = player.color;
+        ctx.fillRect(p.x - camX - 4, p.y - 4, 8, 8);
+    }
+    ctx.globalAlpha = 1;
+    
+    // Player
+    if (!dead) {
+        drawPlayer();
+    }
+}
+
+function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
+    
+    if (player.mode === 'cube') {
+        // Rotate the cube but DON'T add 45° offset - keep it flat
+        ctx.rotate(player.rot * Math.PI / 180);
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 20;
+        
+        // Black outline
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-player.size / 2 - 3, -player.size / 2 - 3, player.size + 6, player.size + 6);
+        
+        // Main cube
+        ctx.fillStyle = player.color;
+        ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
+        
+        // Inner detail
+        ctx.fillStyle = '#fff';
+        const innerSize = player.size * 0.3;
+        ctx.fillRect(-innerSize / 2, -innerSize / 2, innerSize, innerSize);
+        
+    } else if (player.mode === 'ship') {
+        ctx.rotate(player.rot * Math.PI / 180);
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 20;
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.moveTo(player.size / 2 + 3, 0);
+        ctx.lineTo(-player.size / 2 - 3, -player.size / 2.5);
+        ctx.lineTo(-player.size / 2 - 3, player.size / 2.5);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.moveTo(player.size / 2, 0);
+        ctx.lineTo(-player.size / 2, -player.size / 2.5);
+        ctx.lineTo(-player.size / 2, player.size / 2.5);
+        ctx.closePath();
+        ctx.fill();
+        
+    } else if (player.mode === 'ball') {
+        ctx.rotate(player.rot * Math.PI / 180);
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 20;
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(0, 0, player.size / 2 + 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, player.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-player.size / 6, -player.size / 2, player.size / 3, player.size);
+        
+    } else if (player.mode === 'ufo') {
+        ctx.rotate(player.rot * Math.PI / 180);
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 20;
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, player.size / 2 + 3, player.size / 3 + 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, player.size / 2, player.size / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillRect(-player.size / 4, -player.size / 5, player.size / 2, player.size / 2.5);
+        
+    } else if (player.mode === 'wave') {
+        ctx.shadowColor = player.color;
+        ctx.shadowBlur = 20;
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.moveTo(player.size / 2 + 3, 0);
+        ctx.lineTo(0, player.size / 2 + 3);
+        ctx.lineTo(-player.size / 2 - 3, 0);
+        ctx.lineTo(0, -player.size / 2 - 3);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        ctx.moveTo(player.size / 2, 0);
+        ctx.lineTo(0, player.size / 2);
+        ctx.lineTo(-player.size / 2, 0);
+        ctx.lineTo(0, -player.size / 2);
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+function drawSpike(x, y, w, h) {
+    ctx.fillStyle = '#000';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w / 2, y - h);
+    ctx.lineTo(x + w, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    
+    ctx.shadowBlur = 0;
+}
+
+function drawBlock(x, y, w, h) {
+    ctx.fillStyle = '#000';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10;
+    
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+    
+    ctx.shadowBlur = 0;
+}
+
+function drawPortal(x, y, w, h, mode) {
+    const colors = {
+        cube: '#00ff9d',
+        ship: '#00ffff',
+        ball: '#ff00ff',
+        ufo: '#ffaa00',
+        wave: '#ff0088'
+    };
+    
+    ctx.strokeStyle = colors[mode];
+    ctx.lineWidth = 4;
+    ctx.shadowColor = colors[mode];
+    ctx.shadowBlur = 25;
+    
+    ctx.strokeRect(x, y, w, h);
+    
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = colors[mode];
+    ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = 1;
+    
+    ctx.shadowBlur = 0;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+
+showMainMenu();
+
+</script>
+</body>
+</html>
