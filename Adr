@@ -280,6 +280,80 @@
         transform: translateY(2px);
         box-shadow: 0 2px 0 #000;
     }
+
+    /* Create Editor */
+    #createEditor {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(180deg, #7c5cff 0%, #3c2dbf 100%);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        padding: 2.5rem 3rem 3rem;
+        z-index: 100;
+        overflow-y: auto;
+        pointer-events: none;
+    }
+
+    #createEditor h2 {
+        font-size: 3.2rem;
+        color: #fff;
+        text-shadow: 0 6px 0 rgba(0,0,0,0.3);
+        margin-bottom: 1.5rem;
+        font-weight: 900;
+    }
+
+    #createEditor .back-btn {
+        pointer-events: auto;
+    }
+
+    .create-panel {
+        width: min(1100px, 95%);
+        background: rgba(0,0,0,0.35);
+        border: 4px solid #fff;
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 12px 25px rgba(0,0,0,0.4);
+        color: #fff;
+        pointer-events: auto;
+    }
+
+    .create-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .create-row label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        font-weight: 900;
+        font-size: 1.1rem;
+    }
+
+    .create-row input,
+    .create-row select {
+        padding: 0.7rem 1rem;
+        border-radius: 10px;
+        border: 3px solid #000;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .create-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .create-help {
+        font-size: 1.1rem;
+        font-weight: 700;
+        opacity: 0.9;
+    }
 </style>
 </head>
 <body>
@@ -290,8 +364,8 @@
 <div id="mainMenu">
     <h1>GEOMETRY DASH</h1>
     <div>
-        <button class="menu-btn" onclick="showLevelSelect()">PLAY</button>
-        <button class="menu-btn" onclick="alert('Level Creator - Click on the game canvas during play to place obstacles! (Coming in full version)')">CREATE</button>
+        <button class="menu-btn" id="playBtn" onclick="showLevelSelect()">PLAY</button>
+        <button class="menu-btn" id="createBtn">CREATE</button>
     </div>
 </div>
 
@@ -300,6 +374,70 @@
     <button class="back-btn" onclick="showMainMenu()">← BACK</button>
     <h2>SELECT LEVEL</h2>
     <div class="level-grid" id="levelGrid"></div>
+</div>
+
+<!-- Create Editor -->
+<div id="createEditor">
+    <button class="back-btn" onclick="showMainMenu()">← BACK</button>
+    <div class="create-panel">
+        <h2>CREATE LEVEL</h2>
+        <div class="create-row">
+            <label>
+                Name
+                <input id="createName" type="text" value="My Level" maxlength="20">
+            </label>
+            <label>
+                Difficulty
+                <select id="createDifficulty">
+                    <option value="easy">Easy</option>
+                    <option value="normal">Normal</option>
+                    <option value="hard">Hard</option>
+                    <option value="insane">Insane</option>
+                    <option value="demon">Demon</option>
+                </select>
+            </label>
+            <label>
+                Length
+                <input id="createLength" type="number" min="2000" max="12000" value="4500">
+            </label>
+        </div>
+        <div class="create-row">
+            <label>
+                Obstacle
+                <select id="createObstacle">
+                    <option value="spike">Spike</option>
+                    <option value="block">Block</option>
+                    <option value="portal">Portal</option>
+                </select>
+            </label>
+            <label>
+                Portal Mode
+                <select id="createPortalMode">
+                    <option value="cube">Cube</option>
+                    <option value="ship">Ship</option>
+                    <option value="ball">Ball</option>
+                    <option value="ufo">UFO</option>
+                    <option value="wave">Wave</option>
+                </select>
+            </label>
+            <label>
+                Theme
+                <select id="createTheme">
+                    <option value="sunrise">Sunrise</option>
+                    <option value="neon">Neon</option>
+                    <option value="forest">Forest</option>
+                    <option value="lava">Lava</option>
+                </select>
+            </label>
+        </div>
+        <div class="create-actions">
+            <button class="menu-btn" onclick="playtestLevel()">PLAYTEST</button>
+            <button class="menu-btn" onclick="saveCustomLevel()">SAVE</button>
+            <button class="menu-btn" onclick="clearCustomLevel()">CLEAR</button>
+            <button class="menu-btn" onclick="removeLastObstacle()">UNDO</button>
+        </div>
+        <p class="create-help">Click on the canvas to place obstacles. Use ←/→ or mouse wheel to scroll.</p>
+    </div>
 </div>
 
 <!-- Game UI -->
@@ -364,6 +502,10 @@ window.addEventListener('resize', () => {
 let gameState = 'menu';
 let currentLevel = null;
 let currentLevelIndex = 0;
+
+let editorLevel = null;
+let editorCamX = 0;
+let editorMouse = { x: 0, y: 0 };
 
 let player = {
     x: 220,
@@ -552,6 +694,33 @@ const LEVELS = [
     }
 ];
 
+const THEMES = {
+    sunrise: {
+        color: '#ffb347',
+        bg1: '#ff7b7b',
+        bg2: '#ffb347',
+        ground: '#ffe066'
+    },
+    neon: {
+        color: '#00ffd5',
+        bg1: '#1a0033',
+        bg2: '#000011',
+        ground: '#00ffd5'
+    },
+    forest: {
+        color: '#00ff9d',
+        bg1: '#2b9348',
+        bg2: '#007f5f',
+        ground: '#55a630'
+    },
+    lava: {
+        color: '#ff4d00',
+        bg1: '#ff0000',
+        bg2: '#6a040f',
+        ground: '#ff8800'
+    }
+};
+
 function generateRandomLevel(length, spacing) {
     const obs = [];
     const modes = ['cube', 'ship', 'ball', 'ufo', 'wave'];
@@ -587,6 +756,15 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         pressing = true;
     }
+
+    if (gameState === 'create') {
+        if (e.code === 'ArrowRight') {
+            editorCamX += 80;
+        }
+        if (e.code === 'ArrowLeft') {
+            editorCamX = Math.max(0, editorCamX - 80);
+        }
+    }
 });
 
 document.addEventListener('keyup', e => {
@@ -596,7 +774,13 @@ document.addEventListener('keyup', e => {
 });
 
 canvas.addEventListener('mousedown', () => {
-    if (gameState === 'playing') pressing = true;
+    if (gameState === 'playing') {
+        pressing = true;
+        return;
+    }
+    if (gameState === 'create') {
+        placeEditorObstacle();
+    }
 });
 
 canvas.addEventListener('mouseup', () => pressing = false);
@@ -606,11 +790,31 @@ canvas.addEventListener('touchstart', e => {
         e.preventDefault();
         pressing = true;
     }
+    if (gameState === 'create') {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        editorMouse.x = touch.clientX - rect.left;
+        editorMouse.y = touch.clientY - rect.top;
+        placeEditorObstacle();
+    }
 }, {passive: false});
 
 canvas.addEventListener('touchend', e => {
     e.preventDefault();
     pressing = false;
+}, {passive: false});
+
+canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    editorMouse.x = e.clientX - rect.left;
+    editorMouse.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('wheel', e => {
+    if (gameState !== 'create') return;
+    e.preventDefault();
+    editorCamX = Math.max(0, editorCamX + e.deltaY * 0.8);
 }, {passive: false});
 
 // ════════════════════════════════════════════════════════════════════════
@@ -621,6 +825,7 @@ function showMainMenu() {
     gameState = 'menu';
     document.getElementById('mainMenu').style.display = 'flex';
     document.getElementById('levelSelect').style.display = 'none';
+    document.getElementById('createEditor').style.display = 'none';
     document.getElementById('gameUI').style.display = 'none';
     document.getElementById('deathScreen').style.display = 'none';
     document.getElementById('victoryScreen').style.display = 'none';
@@ -630,7 +835,21 @@ function showLevelSelect() {
     gameState = 'levelSelect';
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('levelSelect').style.display = 'flex';
+    document.getElementById('createEditor').style.display = 'none';
     renderLevelGrid();
+}
+
+function showCreateEditor() {
+    gameState = 'create';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('levelSelect').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'none';
+    document.getElementById('deathScreen').style.display = 'none';
+    document.getElementById('victoryScreen').style.display = 'none';
+    document.getElementById('createEditor').style.display = 'flex';
+
+    initEditorLevel();
+    requestAnimationFrame(editorLoop);
 }
 
 function renderLevelGrid() {
@@ -703,6 +922,94 @@ function exitLevel() {
     document.getElementById('deathScreen').style.display = 'none';
     document.getElementById('victoryScreen').style.display = 'none';
     showLevelSelect();
+}
+
+function initEditorLevel() {
+    const levelData = buildEditorLevel();
+    editorLevel = {
+        ...levelData,
+        obstacles: []
+    };
+    editorCamX = 0;
+}
+
+function buildEditorLevel() {
+    const name = document.getElementById('createName').value.trim() || 'My Level';
+    const difficulty = document.getElementById('createDifficulty').value;
+    const length = Math.max(2000, Math.min(12000, Number(document.getElementById('createLength').value) || 4500));
+    const themeKey = document.getElementById('createTheme').value;
+    const theme = THEMES[themeKey] || THEMES.sunrise;
+
+    return {
+        name,
+        difficulty,
+        color: theme.color,
+        bg1: theme.bg1,
+        bg2: theme.bg2,
+        ground: theme.ground,
+        unlocked: true,
+        length
+    };
+}
+
+function placeEditorObstacle() {
+    if (!editorLevel) return;
+    const obstacleType = document.getElementById('createObstacle').value;
+    const portalMode = document.getElementById('createPortalMode').value;
+
+    const x = Math.round(editorCamX + editorMouse.x);
+    if (x < 200) return;
+
+    if (obstacleType === 'spike') {
+        editorLevel.obstacles.push({ x, type: 'spike', w: 48, h: 62 });
+    } else if (obstacleType === 'block') {
+        editorLevel.obstacles.push({ x, type: 'block', w: 60, h: 60 });
+    } else {
+        editorLevel.obstacles.push({ x, type: 'portal', mode: portalMode, w: 40, h: 100 });
+    }
+
+    editorLevel.obstacles.sort((a, b) => a.x - b.x);
+}
+
+function playtestLevel() {
+    if (!editorLevel) return;
+    currentLevel = {
+        ...buildEditorLevel(),
+        obstacles: [...editorLevel.obstacles]
+    };
+    currentLevelIndex = LEVELS.length;
+    gameState = 'playing';
+    document.getElementById('createEditor').style.display = 'none';
+    document.getElementById('gameUI').style.display = 'flex';
+    resetLevel();
+    attempts = 1;
+    jumps = 0;
+    requestAnimationFrame(gameLoop);
+}
+
+function saveCustomLevel() {
+    if (!editorLevel) return;
+    const newLevel = {
+        ...buildEditorLevel(),
+        obstacles: [...editorLevel.obstacles]
+    };
+    const existingIndex = LEVELS.findIndex(level => level.name.toLowerCase() === newLevel.name.toLowerCase());
+    if (existingIndex >= 0) {
+        LEVELS[existingIndex] = newLevel;
+    } else {
+        LEVELS.push(newLevel);
+    }
+    showLevelSelect();
+}
+
+function clearCustomLevel() {
+    if (!editorLevel) return;
+    editorLevel.obstacles = [];
+}
+
+function removeLastObstacle() {
+    if (!editorLevel || editorLevel.obstacles.length === 0) return;
+    editorLevel.obstacles.pop();
 }
 
 function updateUI() {
@@ -1075,6 +1382,65 @@ function draw() {
     }
 }
 
+function editorLoop() {
+    if (gameState !== 'create') return;
+    drawEditor();
+    requestAnimationFrame(editorLoop);
+}
+
+function drawEditor() {
+    if (!editorLevel) return;
+    const meta = buildEditorLevel();
+    editorLevel = { ...editorLevel, ...meta, obstacles: editorLevel.obstacles };
+    editorCamX = Math.max(0, Math.min(editorCamX, Math.max(0, editorLevel.length - W * 0.6)));
+    ctx.clearRect(0, 0, W, H);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, editorLevel.bg1);
+    bg.addColorStop(1, editorLevel.bg2);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.lineWidth = 2;
+    const grid = 70;
+    for (let x = -editorCamX % grid - grid; x < W + grid; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+    }
+
+    ctx.fillStyle = editorLevel.ground;
+    ctx.fillRect(0, groundY, W, H - groundY);
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+
+    for (let obs of editorLevel.obstacles) {
+        const ox = obs.x - editorCamX;
+        if (ox < -100 || ox > W + 100) continue;
+        if (obs.type === 'spike') {
+            drawSpike(ox, groundY, obs.w, obs.h);
+        } else if (obs.type === 'block') {
+            drawBlock(ox, groundY - obs.h, obs.w, obs.h);
+        } else if (obs.type === 'portal') {
+            drawPortal(ox, groundY - obs.h, obs.w, obs.h, obs.mode);
+        }
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(editorMouse.x, 0);
+    ctx.lineTo(editorMouse.x, H);
+    ctx.stroke();
+}
+
 function drawPlayer() {
     ctx.save();
     ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
@@ -1239,6 +1605,8 @@ function drawPortal(x, y, w, h, mode) {
 // ════════════════════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════════════════════
+
+document.getElementById('createBtn').addEventListener('click', showCreateEditor);
 
 showMainMenu();
 
