@@ -328,6 +328,39 @@
         margin-bottom: 1rem;
     }
 
+    .create-row.create-palette {
+        grid-template-columns: 1fr;
+    }
+
+    .palette-categories {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.6rem;
+    }
+
+    .palette-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 0.6rem;
+    }
+
+    .palette-item {
+        background: rgba(255,255,255,0.08);
+        border: 2px solid rgba(255,255,255,0.4);
+        border-radius: 10px;
+        padding: 0.6rem;
+        text-align: center;
+        font-weight: 800;
+        cursor: pointer;
+        color: #fff;
+    }
+
+    .palette-item.active {
+        border-color: #00ff9d;
+        box-shadow: 0 0 0 2px rgba(0,255,157,0.4);
+    }
+
     .create-row label {
         display: flex;
         flex-direction: column;
@@ -337,7 +370,8 @@
     }
 
     .create-row input,
-    .create-row select {
+    .create-row select,
+    .create-row textarea {
         padding: 0.6rem 0.9rem;
         border-radius: 10px;
         border: 3px solid #0b1325;
@@ -345,6 +379,21 @@
         font-weight: 700;
         background: #e3ecff;
         color: #0b1325;
+    }
+
+    .create-row textarea {
+        resize: vertical;
+    }
+
+    .create-wide {
+        grid-column: 1 / -1;
+    }
+
+    .create-json-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
     }
 
     .create-actions {
@@ -412,7 +461,10 @@
                 <select id="createObstacle">
                     <option value="spike">Spike</option>
                     <option value="block">Block</option>
+                    <option value="orb">Orb</option>
                     <option value="portal">Portal</option>
+                    <option value="pad">Pad</option>
+                    <option value="deco">Decoration</option>
                 </select>
             </label>
             <label>
@@ -423,6 +475,10 @@
                     <option value="70">70px</option>
                     <option value="100">100px</option>
                 </select>
+            </label>
+            <label>
+                Zoom
+                <input id="createZoom" type="range" min="0.6" max="1.8" step="0.1" value="1">
             </label>
             <label>
                 Portal Mode
@@ -438,14 +494,43 @@
                 Delete Mode
                 <input id="createDeleteMode" type="checkbox">
             </label>
+            <label>
+                Place Mode
+                <select id="createEditMode">
+                    <option value="place">Place</option>
+                    <option value="select">Select/Move</option>
+                    <option value="pan">Pan</option>
+                </select>
+            </label>
+        </div>
+        <div class="create-row create-palette">
+            <div class="palette-categories">
+                <button class="ui-btn" onclick="setPaletteCategory('blocks')">Blocks</button>
+                <button class="ui-btn" onclick="setPaletteCategory('hazards')">Hazards</button>
+                <button class="ui-btn" onclick="setPaletteCategory('portals')">Portals</button>
+                <button class="ui-btn" onclick="setPaletteCategory('pads')">Pads</button>
+                <button class="ui-btn" onclick="setPaletteCategory('decor')">Decor</button>
+            </div>
+            <div class="palette-items" id="paletteItems"></div>
         </div>
         <div class="create-actions">
             <button class="menu-btn" onclick="playtestLevel()">PLAYTEST</button>
             <button class="menu-btn" onclick="saveCustomLevel()">SAVE</button>
             <button class="menu-btn" onclick="clearCustomLevel()">CLEAR</button>
             <button class="menu-btn" onclick="removeLastObstacle()">UNDO</button>
+            <button class="menu-btn" onclick="rotateSelected(90)">ROTATE</button>
         </div>
-        <p class="create-help">Click or drag to place. Right-click (or enable Delete Mode) to erase. Use ←/→ or mouse wheel to scroll.</p>
+        <div class="create-row">
+            <label class="create-wide">
+                Level JSON
+                <textarea id="createJson" rows="3" placeholder="Saved JSON appears here. Paste to load."></textarea>
+            </label>
+            <div class="create-json-actions">
+                <button class="menu-btn" onclick="exportLevelJson()">EXPORT</button>
+                <button class="menu-btn" onclick="importLevelJson()">IMPORT</button>
+            </div>
+        </div>
+        <p class="create-help">Place mode: click/drag to add. Select mode: click item to move, press R to rotate, Delete to remove. Pan mode: drag or mouse wheel to scroll (Ctrl+wheel zooms).</p>
     </div>
 </div>
 
@@ -517,6 +602,11 @@ let editorCamX = 0;
 let editorMouse = { x: 0, y: 0 };
 let editorPlacing = false;
 let editorLastPlaceX = null;
+let editorSelectedId = null;
+let editorDragging = false;
+let editorDragOffset = 0;
+let editorZoom = 1;
+let paletteCategory = 'blocks';
 
 let player = {
     x: 220,
@@ -712,6 +802,15 @@ const EDITOR_THEME = {
     ground: '#2a8b5a'
 };
 
+const EDITOR_ITEMS = [
+    { id: 'block', label: 'Block', type: 'block', category: 'blocks', w: 60, h: 60, rot: 0 },
+    { id: 'spike', label: 'Spike', type: 'spike', category: 'hazards', w: 48, h: 62, rot: 0 },
+    { id: 'orb', label: 'Orb', type: 'orb', category: 'hazards', w: 40, h: 40, rot: 0 },
+    { id: 'portal', label: 'Portal', type: 'portal', category: 'portals', w: 40, h: 100, rot: 0 },
+    { id: 'pad', label: 'Pad', type: 'pad', category: 'pads', w: 60, h: 20, rot: 0 },
+    { id: 'deco', label: 'Deco', type: 'deco', category: 'decor', w: 50, h: 50, rot: 0 }
+];
+
 function generateRandomLevel(length, spacing) {
     const obs = [];
     const modes = ['cube', 'ship', 'ball', 'ufo', 'wave'];
@@ -762,6 +861,12 @@ document.addEventListener('keyup', e => {
     if (e.code === 'Space') {
         pressing = false;
     }
+    if (gameState === 'create' && e.code === 'Delete') {
+        removeSelectedObstacle();
+    }
+    if (gameState === 'create' && e.code === 'KeyR') {
+        rotateSelected(90);
+    }
 });
 
 canvas.addEventListener('mousedown', e => {
@@ -770,8 +875,23 @@ canvas.addEventListener('mousedown', e => {
         return;
     }
     if (gameState === 'create') {
+        const editMode = document.getElementById('createEditMode').value;
         if (e.button === 2) {
             removeEditorObstacle();
+            return;
+        }
+        if (editMode === 'pan') {
+            editorDragging = true;
+            editorDragOffset = editorCamX + (editorMouse.x / editorZoom);
+            return;
+        }
+        if (editMode === 'select') {
+            selectEditorObstacle();
+            if (editorSelectedId) {
+                editorDragging = true;
+                const selected = editorLevel.obstacles.find(obs => obs.id === editorSelectedId);
+                editorDragOffset = (editorMouse.x / editorZoom) + editorCamX - selected.x;
+            }
             return;
         }
         editorPlacing = true;
@@ -782,6 +902,7 @@ canvas.addEventListener('mousedown', e => {
 canvas.addEventListener('mouseup', () => {
     pressing = false;
     editorPlacing = false;
+    editorDragging = false;
     editorLastPlaceX = null;
 });
 
@@ -813,6 +934,21 @@ canvas.addEventListener('mousemove', e => {
     if (gameState === 'create' && editorPlacing) {
         placeEditorObstacle();
     }
+
+    if (gameState === 'create' && editorDragging) {
+        const editMode = document.getElementById('createEditMode').value;
+        if (editMode === 'pan') {
+            editorCamX = Math.max(0, editorDragOffset - (editorMouse.x / editorZoom));
+        } else if (editMode === 'select' && editorSelectedId) {
+            const snap = buildEditorLevel().grid;
+            const targetX = (editorMouse.x / editorZoom) + editorCamX - editorDragOffset;
+            const snappedX = Math.round(targetX / snap) * snap;
+            const selected = editorLevel.obstacles.find(obs => obs.id === editorSelectedId);
+            if (selected) {
+                selected.x = Math.max(0, Math.min(editorLevel.length, snappedX));
+            }
+        }
+    }
 });
 
 canvas.addEventListener('contextmenu', e => {
@@ -823,7 +959,14 @@ canvas.addEventListener('contextmenu', e => {
 canvas.addEventListener('wheel', e => {
     if (gameState !== 'create') return;
     e.preventDefault();
-    editorCamX = Math.max(0, editorCamX + e.deltaY * 0.8);
+    const zoomInput = document.getElementById('createZoom');
+    if (e.ctrlKey) {
+        const next = Math.max(0.6, Math.min(1.8, editorZoom + (e.deltaY > 0 ? -0.05 : 0.05)));
+        editorZoom = next;
+        zoomInput.value = editorZoom.toFixed(1);
+    } else {
+        editorCamX = Math.max(0, editorCamX + e.deltaY * 0.8);
+    }
 }, {passive: false});
 
 // ════════════════════════════════════════════════════════════════════════
@@ -942,6 +1085,10 @@ function initEditorLevel() {
     editorCamX = 0;
     editorPlacing = false;
     editorLastPlaceX = null;
+    editorSelectedId = null;
+    editorDragging = false;
+    editorZoom = Number(document.getElementById('createZoom').value) || 1;
+    setPaletteCategory('blocks');
 }
 
 function buildEditorLevel() {
@@ -951,6 +1098,7 @@ function buildEditorLevel() {
     const theme = EDITOR_THEME;
 
     return {
+        version: 1,
         name,
         difficulty,
         color: theme.color,
@@ -972,18 +1120,24 @@ function placeEditorObstacle() {
     const obstacleType = document.getElementById('createObstacle').value;
     const portalMode = document.getElementById('createPortalMode').value;
     const snap = buildEditorLevel().grid;
-    const rawX = editorCamX + editorMouse.x;
+    const rawX = editorCamX + (editorMouse.x / editorZoom);
     const x = Math.round(rawX / snap) * snap;
     if (x < 200 || x > editorLevel.length - 100) return;
     if (editorLastPlaceX !== null && Math.abs(x - editorLastPlaceX) < snap * 0.8) return;
 
-    if (obstacleType === 'spike') {
-        editorLevel.obstacles.push({ x, type: 'spike', w: 48, h: 62 });
-    } else if (obstacleType === 'block') {
-        editorLevel.obstacles.push({ x, type: 'block', w: 60, h: 60 });
-    } else {
-        editorLevel.obstacles.push({ x, type: 'portal', mode: portalMode, w: 40, h: 100 });
+    const itemTemplate = EDITOR_ITEMS.find(item => item.id === obstacleType) || EDITOR_ITEMS[0];
+    const baseItem = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        x,
+        type: itemTemplate.type,
+        w: itemTemplate.w,
+        h: itemTemplate.h,
+        rot: 0
+    };
+    if (itemTemplate.type === 'portal') {
+        baseItem.mode = portalMode;
     }
+    editorLevel.obstacles.push(baseItem);
 
     editorLevel.obstacles.sort((a, b) => a.x - b.x);
     editorLastPlaceX = x;
@@ -991,15 +1145,95 @@ function placeEditorObstacle() {
 
 function removeEditorObstacle() {
     if (!editorLevel || editorLevel.obstacles.length === 0) return;
-    const rawX = editorCamX + editorMouse.x;
-    const rawY = editorMouse.y;
+    const rawX = editorCamX + (editorMouse.x / editorZoom);
+    const rawY = editorMouse.y / editorZoom;
+    const ground = groundY / editorZoom;
     const index = editorLevel.obstacles.findIndex(obs => {
         const ox = obs.x;
-        const oy = groundY - obs.h;
-        return rawX >= ox - 20 && rawX <= ox + obs.w + 20 && rawY >= oy - 30 && rawY <= groundY + 30;
+        const oy = ground - obs.h;
+        return rawX >= ox - 20 && rawX <= ox + obs.w + 20 && rawY >= oy - 30 && rawY <= ground + 30;
     });
     if (index >= 0) {
         editorLevel.obstacles.splice(index, 1);
+    }
+}
+
+function selectEditorObstacle() {
+    if (!editorLevel) return;
+    const rawX = editorCamX + (editorMouse.x / editorZoom);
+    const rawY = editorMouse.y / editorZoom;
+    const ground = groundY / editorZoom;
+    const hit = editorLevel.obstacles.find(obs => {
+        const ox = obs.x;
+        const oy = ground - obs.h;
+        return rawX >= ox - 10 && rawX <= ox + obs.w + 10 && rawY >= oy - 20 && rawY <= ground + 20;
+    });
+    editorSelectedId = hit ? hit.id : null;
+}
+
+function removeSelectedObstacle() {
+    if (!editorLevel || !editorSelectedId) return;
+    const index = editorLevel.obstacles.findIndex(obs => obs.id === editorSelectedId);
+    if (index >= 0) {
+        editorLevel.obstacles.splice(index, 1);
+        editorSelectedId = null;
+    }
+}
+
+function rotateSelected(amount) {
+    if (!editorLevel || !editorSelectedId) return;
+    const selected = editorLevel.obstacles.find(obs => obs.id === editorSelectedId);
+    if (selected) {
+        selected.rot = (selected.rot + amount) % 360;
+    }
+}
+
+function setPaletteCategory(category) {
+    paletteCategory = category;
+    const palette = document.getElementById('paletteItems');
+    palette.innerHTML = '';
+    const items = EDITOR_ITEMS.filter(item => item.category === category);
+    items.forEach(item => {
+        const button = document.createElement('div');
+        button.className = 'palette-item' + (document.getElementById('createObstacle').value === item.id ? ' active' : '');
+        button.textContent = item.label;
+        button.onclick = () => {
+            document.getElementById('createObstacle').value = item.id;
+            setPaletteCategory(category);
+        };
+        palette.appendChild(button);
+    });
+}
+
+function exportLevelJson() {
+    if (!editorLevel) return;
+    const payload = {
+        ...buildEditorLevel(),
+        obstacles: editorLevel.obstacles
+    };
+    document.getElementById('createJson').value = JSON.stringify(payload, null, 2);
+}
+
+function importLevelJson() {
+    try {
+        const raw = document.getElementById('createJson').value.trim();
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        editorLevel = {
+            ...buildEditorLevel(),
+            ...data,
+            obstacles: (data.obstacles || []).map(item => ({
+                id: item.id || (crypto.randomUUID ? crypto.randomUUID() : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+                x: item.x,
+                type: item.type,
+                w: item.w || 60,
+                h: item.h || 60,
+                rot: item.rot || 0,
+                mode: item.mode
+            }))
+        };
+    } catch (error) {
+        alert('Invalid JSON.');
     }
 }
 
@@ -1425,69 +1659,113 @@ function drawEditor() {
     const meta = buildEditorLevel();
     editorLevel = { ...editorLevel, ...meta, obstacles: editorLevel.obstacles };
     editorCamX = Math.max(0, Math.min(editorCamX, Math.max(0, editorLevel.length - W * 0.6)));
+    editorZoom = Number(document.getElementById('createZoom').value) || 1;
     ctx.clearRect(0, 0, W, H);
 
     ctx.fillStyle = '#2d70d2';
     ctx.fillRect(0, 0, W, H);
 
+    ctx.save();
+    ctx.scale(editorZoom, editorZoom);
+    const drawWidth = W / editorZoom;
+    const drawHeight = H / editorZoom;
+    const ground = groundY / editorZoom;
+
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)';
     ctx.lineWidth = 2;
     const grid = 70;
-    for (let x = -editorCamX % grid - grid; x < W + grid; x += grid) {
+    for (let x = -editorCamX % grid - grid; x < drawWidth + grid; x += grid) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
+        ctx.lineTo(x, drawHeight);
         ctx.stroke();
     }
-    for (let y = 0; y < H; y += grid) {
+    for (let y = 0; y < drawHeight; y += grid) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
+        ctx.lineTo(drawWidth, y);
         ctx.stroke();
     }
 
     ctx.fillStyle = editorLevel.ground;
-    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillRect(0, ground, drawWidth, drawHeight - ground);
 
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(0, groundY);
-    ctx.lineTo(W, groundY);
+    ctx.moveTo(0, ground);
+    ctx.lineTo(drawWidth, ground);
     ctx.stroke();
 
     for (let obs of editorLevel.obstacles) {
         const ox = obs.x - editorCamX;
-        if (ox < -100 || ox > W + 100) continue;
-        if (obs.type === 'spike') {
-            drawSpike(ox, groundY, obs.w, obs.h);
-        } else if (obs.type === 'block') {
-            drawBlock(ox, groundY - obs.h, obs.w, obs.h);
-        } else if (obs.type === 'portal') {
-            drawPortal(ox, groundY - obs.h, obs.w, obs.h, obs.mode);
+        if (ox < -100 || ox > drawWidth + 100) continue;
+        drawEditorItem(ox, ground, obs);
+
+        if (obs.id && obs.id === editorSelectedId) {
+            ctx.strokeStyle = '#00ff9d';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(ox - 4, ground - obs.h - 4, obs.w + 8, obs.h + 8);
         }
     }
 
     const obstacleType = document.getElementById('createObstacle').value;
     const portalMode = document.getElementById('createPortalMode').value;
     const snap = editorLevel.grid || 40;
-    const ghostX = Math.round((editorCamX + editorMouse.x) / snap) * snap - editorCamX;
+    const ghostX = Math.round((editorCamX + (editorMouse.x / editorZoom)) / snap) * snap - editorCamX;
     ctx.globalAlpha = 0.6;
     if (obstacleType === 'spike') {
-        drawSpike(ghostX, groundY, 48, 62);
+        drawSpike(ghostX, ground, 48, 62);
     } else if (obstacleType === 'block') {
-        drawBlock(ghostX, groundY - 60, 60, 60);
+        drawBlock(ghostX, ground - 60, 60, 60);
+    } else if (obstacleType === 'orb') {
+        drawOrb(ghostX, ground - 40, 40, 40);
+    } else if (obstacleType === 'pad') {
+        drawPad(ghostX, ground - 20, 60, 20);
+    } else if (obstacleType === 'deco') {
+        drawDeco(ghostX, ground - 50, 50, 50);
     } else {
-        drawPortal(ghostX, groundY - 100, 40, 100, portalMode);
+        drawPortal(ghostX, ground - 100, 40, 100, portalMode);
     }
     ctx.globalAlpha = 1;
 
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(editorMouse.x, 0);
-    ctx.lineTo(editorMouse.x, H);
+    ctx.moveTo(editorMouse.x / editorZoom, 0);
+    ctx.lineTo(editorMouse.x / editorZoom, drawHeight);
     ctx.stroke();
+
+    ctx.restore();
+}
+
+function drawEditorItem(ox, ground, obs) {
+    const y = ground - obs.h;
+    if (obs.rot) {
+        ctx.save();
+        ctx.translate(ox + obs.w / 2, y + obs.h / 2);
+        ctx.rotate((obs.rot * Math.PI) / 180);
+        renderItem(-obs.w / 2, -obs.h / 2, obs);
+        ctx.restore();
+        return;
+    }
+    renderItem(ox, y, obs);
+}
+
+function renderItem(x, y, obs) {
+    if (obs.type === 'spike') {
+        drawSpike(x, y + obs.h, obs.w, obs.h);
+    } else if (obs.type === 'block') {
+        drawBlock(x, y, obs.w, obs.h);
+    } else if (obs.type === 'portal') {
+        drawPortal(x, y, obs.w, obs.h, obs.mode);
+    } else if (obs.type === 'orb') {
+        drawOrb(x, y, obs.w, obs.h);
+    } else if (obs.type === 'pad') {
+        drawPad(x, y, obs.w, obs.h);
+    } else if (obs.type === 'deco') {
+        drawDeco(x, y, obs.w, obs.h);
+    }
 }
 
 function drawPlayer() {
@@ -1625,6 +1903,40 @@ function drawBlock(x, y, w, h) {
     ctx.strokeRect(x, y, w, h);
     
     ctx.shadowBlur = 0;
+}
+
+function drawOrb(x, y, w, h) {
+    ctx.save();
+    ctx.shadowColor = '#ffec3d';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#ffec3d';
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h / 2, w / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawPad(x, y, w, h) {
+    ctx.save();
+    ctx.fillStyle = '#00ff9d';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+}
+
+function drawDeco(x, y, w, h) {
+    ctx.save();
+    ctx.fillStyle = '#9bd1ff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
 }
 
 function drawPortal(x, y, w, h, mode) {
