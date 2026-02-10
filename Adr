@@ -411,6 +411,15 @@
                 </select>
             </label>
             <label>
+                Grid
+                <select id="createGrid">
+                    <option value="20">20px</option>
+                    <option value="40" selected>40px</option>
+                    <option value="70">70px</option>
+                    <option value="100">100px</option>
+                </select>
+            </label>
+            <label>
                 Portal Mode
                 <select id="createPortalMode">
                     <option value="cube">Cube</option>
@@ -429,6 +438,10 @@
                     <option value="lava">Lava</option>
                 </select>
             </label>
+            <label>
+                Delete Mode
+                <input id="createDeleteMode" type="checkbox">
+            </label>
         </div>
         <div class="create-actions">
             <button class="menu-btn" onclick="playtestLevel()">PLAYTEST</button>
@@ -436,7 +449,7 @@
             <button class="menu-btn" onclick="clearCustomLevel()">CLEAR</button>
             <button class="menu-btn" onclick="removeLastObstacle()">UNDO</button>
         </div>
-        <p class="create-help">Click on the canvas to place obstacles. Use ←/→ or mouse wheel to scroll.</p>
+        <p class="create-help">Click or drag to place. Right-click (or enable Delete Mode) to erase. Use ←/→ or mouse wheel to scroll.</p>
     </div>
 </div>
 
@@ -506,6 +519,8 @@ let currentLevelIndex = 0;
 let editorLevel = null;
 let editorCamX = 0;
 let editorMouse = { x: 0, y: 0 };
+let editorPlacing = false;
+let editorLastPlaceX = null;
 
 let player = {
     x: 220,
@@ -773,17 +788,26 @@ document.addEventListener('keyup', e => {
     }
 });
 
-canvas.addEventListener('mousedown', () => {
+canvas.addEventListener('mousedown', e => {
     if (gameState === 'playing') {
         pressing = true;
         return;
     }
     if (gameState === 'create') {
+        if (e.button === 2) {
+            removeEditorObstacle();
+            return;
+        }
+        editorPlacing = true;
         placeEditorObstacle();
     }
 });
 
-canvas.addEventListener('mouseup', () => pressing = false);
+canvas.addEventListener('mouseup', () => {
+    pressing = false;
+    editorPlacing = false;
+    editorLastPlaceX = null;
+});
 
 canvas.addEventListener('touchstart', e => {
     if (gameState === 'playing') {
@@ -809,6 +833,15 @@ canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
     editorMouse.x = e.clientX - rect.left;
     editorMouse.y = e.clientY - rect.top;
+
+    if (gameState === 'create' && editorPlacing) {
+        placeEditorObstacle();
+    }
+});
+
+canvas.addEventListener('contextmenu', e => {
+    if (gameState !== 'create') return;
+    e.preventDefault();
 });
 
 canvas.addEventListener('wheel', e => {
@@ -931,6 +964,8 @@ function initEditorLevel() {
         obstacles: []
     };
     editorCamX = 0;
+    editorPlacing = false;
+    editorLastPlaceX = null;
 }
 
 function buildEditorLevel() {
@@ -948,17 +983,24 @@ function buildEditorLevel() {
         bg2: theme.bg2,
         ground: theme.ground,
         unlocked: true,
-        length
+        length,
+        grid: Math.max(20, Number(document.getElementById('createGrid').value) || 40)
     };
 }
 
 function placeEditorObstacle() {
     if (!editorLevel) return;
+    if (document.getElementById('createDeleteMode').checked) {
+        removeEditorObstacle();
+        return;
+    }
     const obstacleType = document.getElementById('createObstacle').value;
     const portalMode = document.getElementById('createPortalMode').value;
-
-    const x = Math.round(editorCamX + editorMouse.x);
-    if (x < 200) return;
+    const snap = buildEditorLevel().grid;
+    const rawX = editorCamX + editorMouse.x;
+    const x = Math.round(rawX / snap) * snap;
+    if (x < 200 || x > editorLevel.length - 100) return;
+    if (editorLastPlaceX !== null && Math.abs(x - editorLastPlaceX) < snap * 0.8) return;
 
     if (obstacleType === 'spike') {
         editorLevel.obstacles.push({ x, type: 'spike', w: 48, h: 62 });
@@ -969,6 +1011,21 @@ function placeEditorObstacle() {
     }
 
     editorLevel.obstacles.sort((a, b) => a.x - b.x);
+    editorLastPlaceX = x;
+}
+
+function removeEditorObstacle() {
+    if (!editorLevel || editorLevel.obstacles.length === 0) return;
+    const rawX = editorCamX + editorMouse.x;
+    const rawY = editorMouse.y;
+    const index = editorLevel.obstacles.findIndex(obs => {
+        const ox = obs.x;
+        const oy = groundY - obs.h;
+        return rawX >= ox - 20 && rawX <= ox + obs.w + 20 && rawY >= oy - 30 && rawY <= groundY + 30;
+    });
+    if (index >= 0) {
+        editorLevel.obstacles.splice(index, 1);
+    }
 }
 
 function playtestLevel() {
@@ -1432,6 +1489,20 @@ function drawEditor() {
             drawPortal(ox, groundY - obs.h, obs.w, obs.h, obs.mode);
         }
     }
+
+    const obstacleType = document.getElementById('createObstacle').value;
+    const portalMode = document.getElementById('createPortalMode').value;
+    const snap = editorLevel.grid || 40;
+    const ghostX = Math.round((editorCamX + editorMouse.x) / snap) * snap - editorCamX;
+    ctx.globalAlpha = 0.6;
+    if (obstacleType === 'spike') {
+        drawSpike(ghostX, groundY, 48, 62);
+    } else if (obstacleType === 'block') {
+        drawBlock(ghostX, groundY - 60, 60, 60);
+    } else {
+        drawPortal(ghostX, groundY - 100, 40, 100, portalMode);
+    }
+    ctx.globalAlpha = 1;
 
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 2;
