@@ -366,7 +366,7 @@
 <canvas id="c"></canvas>
 
 <!-- Main Menu -->
-<div id="mainMenu">
+<div id="mainMenu" style="display: none;">
     <h1>GEOMETRY DASH</h1>
     <div>
         <button class="menu-btn" id="playBtn" onclick="showLevelSelect()">PLAY</button>
@@ -1657,7 +1657,7 @@ function drawPortal(x, y, w, h, mode) {
 
 document.getElementById('createBtn').addEventListener('click', showCreateEditor);
 
-showMainMenu();
+showCreateEditor();
 
 </script>
 </body>
